@@ -24,6 +24,7 @@ This project uses the Ultralytics YOLO model. Please refer to the [Ultralytics Y
 ## Configuration
 Create a `config.ini` file in the same directory as the script with the following structure:
 
+ini
 [VideoSettings]
 input_path = path/to/your/video.mp4
 ffmpeg_path = path/to/ffmpeg
