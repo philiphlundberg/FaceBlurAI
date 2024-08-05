@@ -37,7 +37,8 @@ threshold = 0.5 # Confidence threshold for object detection
 ## Usage
 1. Run the script:
    The run.bat file is used to run the program which starts the GUI
-2. Follow the prompts in the console. You will be asked to press 'Enter' three times to proceed with the video processing.
+2. Choose your desired specifications. Make sure you press "Save Configurations" when you are satisfied, since this updates the config.ini file. 
+3. Follow the prompts in the console. You will be asked to press 'Enter' three times to proceed with the video processing.
 
 ## Features
 - **Cut Video**: The script can cut a specified portion of the video based on the start time and duration.
@@ -51,7 +52,7 @@ threshold = 0.5 # Confidence threshold for object detection
   - Audio (if kept): `w_audio_<blurred_filename>`
 
 ## Notes
-- Ensure that the YOLO model file (`yolov8n-face.pt`) is available in the same directory or provide the correct path in the script.
+- Ensure that the YOLO model file (`yolov8n-face.pt`) is available in the same directory or provide the correct path in the script or change to whatever model you choose.
 - Adjust the `desired_class` variable in the script to target different object classes for blurring.
 
 ## License
