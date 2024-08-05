@@ -1,3 +1,8 @@
+# Project Name: FaceBlurAI
+# License: MIT
+# Author: Philiph Lundberg
+# Date: 2024-08-05
+
 import tkinter as tk
 from tkinter import filedialog
 import configparser
