@@ -1,3 +1,8 @@
+# Project Name: FaceBlurAI
+# License: MIT
+# Author: Philiph Lundberg
+# Date: 2024-08-05
+
 import cv2
 from ultralytics import YOLO
 import numpy as np
