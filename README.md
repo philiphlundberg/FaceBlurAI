@@ -1,7 +1,9 @@
-# Video Cutter and Blurrer
+# FaceBlurAI
 
 ## Overview
-This Python script allows users to cut a video and apply a blurring effect to specific objects detected using the YOLO (You Only Look Once) model. In my project I used a model trained to identify faces to automatically blur them. It also provides an option to extract and retain audio from the original video.
+This Python script allows users to cut a video and apply a blurring effect to specific objects detected using the YOLO (You Only Look Once) model. 
+In my project I used a model trained to identify faces to automatically blur them. 
+It also provides an option to extract and retain audio from the original video and a choice to change resolution.
 
 ## Acknowledgements
 This project uses the Ultralytics YOLO model. Please refer to the [Ultralytics YOLO repository](https://github.com/ultralytics/ultralytics) for more information and its licensing terms.
@@ -46,29 +48,32 @@ This project uses the Ultralytics YOLO model. Please refer to the [Ultralytics Y
 	- The FaceBlurAI shortcut is just a shortcut to run.bat with a fancy name and icon
 		The run.bat file is the base file used to run the program
 		This shortcut is created to ensure that nothing happens to the original file
+		Drag it to your desktop to create your own shortcut
 	- Double tap FaceBlurAI to open the program.
 2. Use the program:
 	- Two things will pop up: The User Interface (UI) and the console
 		The UI is used to configure the settings
 		The console will give some output messages to keep track of where you are in the script
-	- In the UI you first select the wanted video by copying the path to the video and ending with the video name
-		Make sure you include the file type (.MP4 usually)
-	- You can also specify if you want to cut the video into a smaller video
+	- In the UI you first select the wanted video by clicking browse and selecting the wanted video
+		Make sure it includes the file type (.MP4 usually)
+	- You can specify if you want to cut the video into a smaller video
 		You do this by first ticking the box that says cut and press "Save Configurations"
 		Two other boxes will then appear where you specify the new start time (in seconds) of the video and how long you want the video to be
 		NOTE: The "Duration" input is the LENGTH of the video in seconds, not the end time
 		Make sure that you press "Save Configurations" again after you set the times, otherwise it won't update the settings
-	- The slider that says "Confidence" signifies how certain you want the AI to be that it is a face.
+	- The slider that says "Set Confidence Level" signifies how certain you want the AI to be that it is a face.
 		Pro of having a high confidence: The AI will not blur things that isn't a face, for example: the AI sometimes blurres chairs for no apparent reason
 		Con of having a high confidence: The AI will sometimes miss faces and not blur them
 		I found a good balance by having the confidence of 30% which is the default
+	- Optionally you can also choose to change the resolution of your video
+		This is useful if you have filmed with GoPro, for example, and want to use the video in AVIX
 	- When you are satisfied with the settings, press "Save Configurations" a final time before pressing "Run Blurring Script"
 		This will cause the program to close the UI and switch to the console
    
 2. Using the console: 
 	- The program will start using your desired settings
 		You will see different messages based on your settings
-	- Before the AI starts working on blurring the video it will give you some information about the video
+	- Before the AI starts working on blurring, it will give you some information about the video
 		This includes file size and an approximated runtime for the script
 	- You will be asked to press 'Enter' three times to proceed with the video processing.
 	- The inference will start and you can minimize the window
@@ -78,12 +83,14 @@ This project uses the Ultralytics YOLO model. Please refer to the [Ultralytics Y
 - **Cut Video**: The script can cut a specified portion of the video based on the start time and duration.
 - **Blur Objects**: It applies a Gaussian blur to detected objects of a specified class in the video. (Faces in my case)
 - **Audio Extraction**: Optionally retains the original audio in the output video. Default is to remove the audio because of swedish privacy regulations.
+- **Change Resolution**: Changes the resolution to the specified size
 
 ## Output
 - The processed video will be saved in the same directory as the input video, with the following naming conventions:
   - Cut video: `cut_<original_filename>`
   - Blurred video: `blurred_<original_filename>`
   - Audio (if kept): `w_audio_<blurred_filename>`
+  - Resolution (if changed): `resized_480p_<blurred_filename>`
 
 ## Configuration (This is included for Komatsu employees)
 Create a 'config.ini' file in the same directory as the script with the following structure (if the file does not exist):
@@ -95,8 +102,12 @@ cut_video = true
 start_time = 0 # Start time in seconds
 duration = 10 # Duration in seconds
 keep_audio = true # Set to 'true' to keep audio
+resize_video = False
+resolution = 480p
 [Blurring]
 threshold = 0.5 # Confidence threshold for object detection
+[ModelSettings]
+yolo_model = model.pt
 
 ## Notes
 - Ensure that the YOLO model file (`yolov8n-face.pt`) is available in the same directory or provide the correct path in the script.
