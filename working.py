@@ -1,8 +1,3 @@
-# Project Name: FaceBlurAI
-# License: MIT
-# Author: Philiph Lundberg
-# Date: 2024-08-05
-
 import cv2
 from ultralytics import YOLO
 import numpy as np
@@ -12,7 +7,8 @@ import os
 import subprocess
 
 
-TIME_PER_FRAME = 0.0031355378818845 #minutes
+TIME_PER_FRAME_FACE = 0.0031355378818845 #minutes
+TIME_PER_FRAME_HEAD = 0.02867874396 #minutes
 
 
 class VideoCutter:
@@ -53,6 +49,47 @@ class VideoCutter:
         if not os.path.exists(self.output_path):
             raise FileNotFoundError(f"Output file {self.output_path} was not created.")
 
+    def resize_video(self, resolution):
+        import subprocess
+        import os
+
+        # Define common resolution presets
+        resolutions = {
+            '480p': (854, 480),
+            '720p': (1280, 720),
+            '1080p': (1920, 1080)
+        }
+
+        # Get the dimensions for the requested resolution
+        if resolution not in resolutions:
+            raise ValueError(f"Unsupported resolution: {resolution}")
+        width, height = resolutions[resolution]
+
+        # Generate output path based on input path
+        output_dir, input_filename = os.path.split(self.input_path)
+        output_filename = f'resized_{resolution}_{input_filename}'
+        self.output_path = os.path.join(output_dir, output_filename)
+        
+        # Check if the output file already exists and overwrite it
+        if os.path.exists(self.output_path):
+            os.remove(self.output_path)
+
+        # ffmpeg command to resize the video
+        command = [
+            self.ffmpeg_path,
+            '-i', self.input_path,
+            '-vf', f'scale={width}:{height}',
+            '-c:a', 'copy',
+            self.output_path
+        ]
+        subprocess.run(command, check=True)
+
+        # Check if the output file was created
+        if not os.path.exists(self.output_path):
+            raise FileNotFoundError(f"Output file {self.output_path} was not created.")
+
+        return self.output_path
+
 ####### Read the config file to get the user inputs ########
 config = configparser.ConfigParser()
 config.sections()
@@ -64,9 +101,14 @@ cut_video = settings['cut_video']
 start_time = settings['start_time']
 duration = settings['duration']
 keep_audio = settings['keep_audio']
+resize_video = settings.getboolean('resize_video')  # Read as boolean
+resolution = settings['resolution']  # Read resolution
 
 blur = config['Blurring']
 confidence_threshold = float(blur['threshold'])
+
+mod = config['ModelSettings']
+model_name = mod['yolo_model']
 
 
 video_path = input_path
@@ -82,9 +124,15 @@ if cut_video == 'true':
     
     print("\nThe video was successfully cut.\n")
 
+# Check if resize_video is true and call resize_video method
+if resize_video:
+    print(f"Resizing video to {resolution}...")
+    cutter = VideoCutter(video_path, ffmpeg_path)
+    video_path = cutter.resize_video(resolution)
+    print("Video resized successfully.")
 
 # YOLO model
-model = YOLO('yolov8n-face.pt')
+model = YOLO(model_name)
 
 # Create a VideoCapture object
 cap = cv2.VideoCapture(video_path)
@@ -98,12 +146,22 @@ if not cap.isOpened():
 # Get the width and height of the frames
 frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-time_per_frame = TIME_PER_FRAME
+time_per_frame_face = TIME_PER_FRAME_FACE
+time_per_frame_head = TIME_PER_FRAME_HEAD
 fps = int(cap.get(cv2.CAP_PROP_FPS))
 total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))  # Ensure this is after reinitializing cap
-print(f"File size: {1000 * os.path.getsize(video_path)} kB")
+print(f"File size: {os.path.getsize(video_path) * 0.001} kB")
 print(f"Total frames in the video: {total_frames}")
-print(f"Estimated time is {round(time_per_frame * total_frames, 2)} minutes")
+
+if model_name=='YOLOv8n-face.pt':
+    print(f"Estimated time is {round(time_per_frame_face * total_frames, 2)} minutes")
+elif model_name=='best_re_final.pt':
+    print(f"Estimated time is {round(time_per_frame_head * total_frames, 2)} minutes")
+else:
+    print("Model name does not match a known choice...")
+    print("Terminating the program...")
+    exit()
+
 
 # Ask user if they want to continue
 # Clear any previous output before asking for input
