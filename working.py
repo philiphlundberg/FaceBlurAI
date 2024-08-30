@@ -1,3 +1,14 @@
+####################
+# File Name: working.py
+# Author: Philiph Lundberg
+# Date Created: 2024-08
+# Description: This script processes video files by cutting, resizing, and applying blurring effects using YOLO model.
+# Version: 1.0
+# License: MIT License
+####################
+
+
+
 import cv2
 from ultralytics import YOLO
 import numpy as np
@@ -5,10 +16,25 @@ import time
 import configparser
 import os
 import subprocess
+# from win10toast import ToastNotifier
+import tkinter as tk
+from tkinter import font as tkFont
+import ctypes
+from ctypes import wintypes
+import winsound
+
 
 
 TIME_PER_FRAME_FACE = 0.0031355378818845 #minutes
 TIME_PER_FRAME_HEAD = 0.02867874396 #minutes
+TIME_PER_FRAME_FACE2 = 0.030292887 #minutes
+
+FLASHW_STOP = 0
+FLASHW_CAPTION = 0x00000001
+FLASHW_TRAY = 0x00000002
+FLASHW_ALL = 0x00000003
+FLASHW_TIMER = 0x00000004
+FLASHW_TIMERNOFG = 0x0000000C
 
 
 class VideoCutter:
@@ -16,7 +42,12 @@ class VideoCutter:
         self.input_path = input_path
         self.ffmpeg_path = ffmpeg_path
 
-    def cut_video(self, start_time, duration):
+    def cut_video(self, start_time, end_time):
+        # Convert MM:SS to seconds
+        start_time = self.convert_to_seconds(start_time)
+        end_time = self.convert_to_seconds(end_time)
+        duration = end_time - start_time  # Calculate duration
+
         import subprocess
         import os
 
@@ -36,8 +67,8 @@ class VideoCutter:
         # ffmpeg command to cut the video
         command = [
             self.ffmpeg_path,        # Full path to ffmpeg executable
+            '-ss', str(start_time),  # Start time     
             '-i', self.input_path,   # Input file
-            '-ss', str(start_time),  # Start time
             '-t', str(duration),     # Duration
             '-c:v', 'copy',          # Copy video codec (no re-encoding)
             '-c:a', 'copy',          # Copy audio codec (no re-encoding)
@@ -48,6 +79,11 @@ class VideoCutter:
         # Check if the output file was created
         if not os.path.exists(self.output_path):
             raise FileNotFoundError(f"Output file {self.output_path} was not created.")
+
+    def convert_to_seconds(self, time_str):
+        """Convert MM:SS format to seconds."""
+        minutes, seconds = map(int, time_str.split(':'))
+        return minutes * 60 + seconds
 
     def resize_video(self, resolution):
         import subprocess
@@ -89,6 +125,36 @@ class VideoCutter:
             raise FileNotFoundError(f"Output file {self.output_path} was not created.")
 
         return self.output_path
+    
+kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)
+user32 = ctypes.WinDLL('user32', use_last_error=True)
+
+def play_notification_sound():
+    winsound.MessageBeep(winsound.MB_ICONEXCLAMATION)
+
+class FLASHWINFO(ctypes.Structure):
+    _fields_ = (('cbSize', wintypes.UINT),
+                ('hwnd', wintypes.HWND),
+                ('dwFlags', wintypes.DWORD),
+                ('uCount', wintypes.UINT),
+                ('dwTimeout', wintypes.DWORD))
+    def __init__(self, hwnd, flags=FLASHW_TRAY, count=5, timeout_ms=0):
+        self.cbSize = ctypes.sizeof(self)
+        self.hwnd = hwnd
+        self.dwFlags = flags
+        self.uCount = count
+        self.dwTimeout = timeout_ms
+
+kernel32.GetConsoleWindow.restype = wintypes.HWND
+user32.FlashWindowEx.argtypes = (ctypes.POINTER(FLASHWINFO),)
+
+def flash_console_icon(count=5):
+    hwnd = kernel32.GetConsoleWindow()
+    if not hwnd:
+        raise ctypes.WinError(ctypes.get_last_error())
+    winfo = FLASHWINFO(hwnd, count=count)
+    previous_state = user32.FlashWindowEx(ctypes.byref(winfo))
+    return previous_state
 
 ####### Read the config file to get the user inputs ########
 config = configparser.ConfigParser()
@@ -98,8 +164,8 @@ settings = config['VideoSettings']
 input_path = settings['input_path']
 ffmpeg_path = settings['ffmpeg_path']
 cut_video = settings['cut_video']
-start_time = settings['start_time']
-duration = settings['duration']
+start_time = settings['start_time']  # Read as MM:SS
+end_time = settings['duration']  # Read as MM:SS
 keep_audio = settings['keep_audio']
 resize_video = settings.getboolean('resize_video')  # Read as boolean
 resolution = settings['resolution']  # Read resolution
@@ -110,7 +176,7 @@ confidence_threshold = float(blur['threshold'])
 mod = config['ModelSettings']
 model_name = mod['yolo_model']
 
-
+# Used to override to try custom videos
 video_path = input_path
 
 ###### THIS IS THE START OF THE PROGRAM #######
@@ -119,7 +185,7 @@ print("\n\nLoading video... \n\n")
 if cut_video == 'true':
     print("Cutting video...\n")
     cutter = VideoCutter(video_path, ffmpeg_path)
-    cutter.cut_video(int(start_time), int(duration))
+    cutter.cut_video(start_time, end_time)  # Pass start_time and end_time
     video_path = cutter.output_path
     
     print("\nThe video was successfully cut.\n")
@@ -148,15 +214,29 @@ frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 time_per_frame_face = TIME_PER_FRAME_FACE
 time_per_frame_head = TIME_PER_FRAME_HEAD
+time_per_frame_face2 = TIME_PER_FRAME_FACE2
 fps = int(cap.get(cv2.CAP_PROP_FPS))
 total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))  # Ensure this is after reinitializing cap
 print(f"File size: {os.path.getsize(video_path) * 0.001} kB")
 print(f"Total frames in the video: {total_frames}")
 
-if model_name=='YOLOv8n-face.pt':
-    print(f"Estimated time is {round(time_per_frame_face * total_frames, 2)} minutes")
-elif model_name=='best_re_final.pt':
-    print(f"Estimated time is {round(time_per_frame_head * total_frames, 2)} minutes")
+# Define a mapping of model names to their respective time calculations
+model_time_estimations = {
+    'YOLOv8n-face.pt': (time_per_frame_face, 'minutes'),
+    'yolov8m-face.pt': (time_per_frame_face2, 'minutes'),
+    'best_re_final.pt': (time_per_frame_head, 'minutes'),
+    'yolov8s.pt': (time_per_frame_head, 'minutes')
+}
+
+# Get the time per frame and unit based on the model name
+time_per_frame, unit = model_time_estimations.get(model_name, (None, None))
+
+if time_per_frame is not None:
+    estimated_time = round(time_per_frame * total_frames, 2)
+    if estimated_time > 120:
+        print(f"Estimated time is {round(estimated_time / 60, 1)} hours")
+    else:
+        print(f"Estimated time is {estimated_time} minutes")
 else:
     print("Model name does not match a known choice...")
     print("Terminating the program...")
@@ -196,7 +276,7 @@ desired_class = 0
 bbox_buffer = []
 
 # Initialize a variable to store the start time
-start_time = time.time()
+elapsed_start_time = time.time()
 
 # Read until the video is completed
 while cap.isOpened():
@@ -225,10 +305,18 @@ while cap.isOpened():
         # Apply blur to bounding boxes from the buffer
         for bboxes in bbox_buffer:
             for (x1, y1, x2, y2) in bboxes:
-                # Scale the bounding box dimensions by 1.2
-                scale_factor = 1.6
+                # Scale the bounding box dimensions
+                if model_name == "yolov8s.pt":
+                    scale_factor = 1.0
+                else:
+                    scale_factor = 1.6
                 new_width = int((x2 - x1) * scale_factor)
                 new_height = int((y2 - y1) * scale_factor)
+
+                # Ensure new_width and new_height are positive
+                if new_width <= 0 or new_height <= 0:
+                    continue  # Skip this bounding box if dimensions are invalid
+
                 new_x1 = max(0, x1 - (new_width - (x2 - x1)) // 2)
                 new_y1 = max(0, y1 - (new_height - (y2 - y1)) // 2)
                 new_x2 = min(frame.shape[1], new_x1 + new_width)
@@ -239,19 +327,29 @@ while cap.isOpened():
                 roi = frame[new_y1:new_y2, new_x1:new_x2]
                 
                 # Calculate the kernel size based on the bounding box size
-                kernel_size = max(51, int(min(bbox[2], bbox[3]) / 10) * 2 + 1)
+                kernel_size = int(max(51, int(min(bbox[2], bbox[3]) / 10) * 4 + 1))
                 
                 # Apply gaussian blur to the ROI
                 blurred_roi = cv2.GaussianBlur(roi, (kernel_size, kernel_size), 0)
-                
-                # Create a mask for the ellipse
-                mask = np.zeros_like(roi)
-                center = (bbox[2] // 2, bbox[3] // 2)
-                axes = (bbox[2] // 2, bbox[3] // 2)
-                cv2.ellipse(mask, center, axes, 0, 0, 360, (255, 255, 255), -1)
-                
-                # Combine the blurred ROI with the original frame using the mask
-                frame[new_y1:new_y2, new_x1:new_x2] = np.where(mask == 255, blurred_roi, roi)
+
+                if model_name == "yolov8s.pt":
+                    # Apply blur to the entire bounding box region
+                    frame[new_y1:new_y2, new_x1:new_x2] = blurred_roi
+                elif model_name == "head accurate":
+                    # Apply Box blur
+                    # kernel_size = 2 * int(max(51, int(min(bbox[2], bbox[3]) / 10) * 4 + 1))
+                    kernel_size = (51,51)
+                    blurred_roi = cv2.blur(roi, (kernel_size, kernel_size))
+                    frame[new_y1:new_y2, new_x1:new_x2] = blurred_roi
+                else:
+                    # Create a mask for the ellipse
+                    mask = np.zeros_like(roi)
+                    center = (bbox[2] // 2, bbox[3] // 2)
+                    axes = (bbox[2] // 2, bbox[3] // 2)
+                    cv2.ellipse(mask, center, axes, 0, 0, 360, (255, 255, 255), -1)
+                    
+                    # Combine the blurred ROI with the original frame using the mask
+                    frame[new_y1:new_y2, new_x1:new_x2] = np.where(mask == 255, blurred_roi, roi)
         
         # Write the frame into the output video
         out.write(frame)
@@ -297,23 +395,33 @@ if keep_audio == 'true':
     os.remove(audio_output_path)
 
     # Calculate the elapsed time
-    elapsed_time = time.time() - start_time
+    elapsed_time = time.time() - elapsed_start_time
     print("\n\n#######################################\n\n")
     print("\n\nFinished processing video...\n")
     print("Saving the output files to the same folder as the input video...")
-    print(f"Elapsed time: {elapsed_time/60} minutes")
-    print(f"\nOutput file with audio saved as: {output_video_with_audio}\n")
+    print(f"Elapsed time: {round(elapsed_time/60, 2)} minutes")
+    print(f"\nOutput file with audio saved as: {os.path.basename(output_video_with_audio)}\n")
 
 else:
     # Calculate the elapsed time
-    elapsed_time = time.time() - start_time
+    elapsed_time = time.time() - elapsed_start_time
     print("\n\nFinished blurring video...\n")
     print("Saving the output file to the same folder as the input video...")
-    print(f"Output file name: {video_output_path}")
-    print(f"Elapsed time: {elapsed_time/60} minutes\n")
+    print(f"Output file name: {os.path.basename(video_output_path)}")
+    if elapsed_time/60 > 120:
+        print(f"Elapsed time: {round(elapsed_time/(60*60), 2)} hours")
+    else:
+        print(f"Elapsed time: {round(elapsed_time/60, 2)} minutes\n")
 
 # Closes all the frames
 cv2.destroyAllWindows()
+
+# After the video processing is completed
+# toast = ToastNotifier()
+# toast.show_toast("Video Processing", "Processing completed successfully!", duration=10, threaded=True)
+
+flash_console_icon(count=10)
+play_notification_sound()  # Play a notification sound (optional)
 
 # Add this line to pause the console
 input("Press 'Enter' to exit the program... ")  # This will keep the console open until you press Enter
