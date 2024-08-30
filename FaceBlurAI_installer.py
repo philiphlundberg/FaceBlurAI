@@ -1,3 +1,13 @@
+####################
+# File Name: FaceBlurAI_installer.py
+# Author: Philiph Lundberg
+# Date Created: 2024-08
+# Description: This script installs the necessary packages and dependencies to use FaceBlurAI
+# Version: 1.0
+# License: MIT License
+####################
+
+
 import subprocess
 import sys
 
