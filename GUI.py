@@ -1,3 +1,13 @@
+####################
+# File Name: GUI.py
+# Author: Philiph Lundberg
+# Date Created: 2024-08
+# Description: This script is responsible for the GUI of FaceBlurAI
+# Version: 1.0
+# License: MIT License
+####################
+
+
 import tkinter as tk
 from tkinter import filedialog
 import configparser
@@ -6,6 +16,7 @@ import tkinter as tk
 from tkinter import font as tkfont
 from tkinter import StringVar
 from PIL import Image, ImageTk  # Add this import
+from tkinter import ttk  # Add this import for the dropdown menu
 
 #### GUI FOR THE FACEBLUR AI PROGRAM ####
 
@@ -25,7 +36,8 @@ switch_fg = '#0c039b'  # Blue for switch foreground
 accent_color = '#34a853'  # Green accent color for highlights or important elements
 
 def save_config():
-    global input_start_created, input_duration_created # Declare both as global
+    global input_start_created, input_duration_created  # Declare both as global
+    
     config['VideoSettings']['input_path'] = input_path_entry.get()
     config['Blurring']['threshold'] = str(value_slider.get())
     
@@ -33,9 +45,22 @@ def save_config():
     if 'ModelSettings' not in config:
         config['ModelSettings'] = {}
     
-    config['ModelSettings']['yolo_model'] = 'YOLOv8n-face.pt' if yolo_model_switch.get() else 'best_re_final.pt'
-
-    # Add this line to save the selected resolution
+    # Get the display name from the dropdown
+    selected_display_name = model_var.get()
+    
+    # Map the display name to the actual model filename
+    selected_model_filename = model_mapping.get(selected_display_name)
+    
+    # DEBUG: Print to confirm the correct model filename is being saved
+    # print(f"Saving model to config: {selected_model_filename}")
+    
+    # Save the selected model filename to the config
+    if selected_model_filename:
+        config['ModelSettings']['yolo_model'] = selected_model_filename
+    else:
+        print(f"Error: Selected display name '{selected_display_name}' has no corresponding model filename.")
+    
+    # Save the selected resolution
     config['VideoSettings']['resize_video'] = str(change_res_var.get())  # Convert to string
     config['VideoSettings']['resolution'] = res_var.get()  # Save the selected resolution
 
@@ -51,17 +76,16 @@ def save_config():
         if not input_start_created:  # Use the flag to check
             global input_start_label, input_start_entry  # Declare as global to modify outside the function
             tk.Label(root, text="", bg=bg_color, height=2).pack()  # Adjust height as needed
-            input_start_label = tk.Label(root, text="Start time of video [s]:", bg=bg_color, fg=fg_color)  # Customize colors
+            input_start_label = tk.Label(root, text="Start time of video [MM:SS]:", bg=bg_color, fg=fg_color)  # Customize colors
             input_start_label.pack()
             input_start_entry = tk.Entry(root, width=50, bg=entry_bg, fg=entry_fg)  # Customize colors
             input_start_entry.insert(0, config['VideoSettings']['start_time'])
             input_start_entry.pack()
             input_start_created = True  # Set the flag to True after creation
 
-        # Check if the input_start_label already exists
         if not input_duration_created:  # Use the flag to check
             global input_duration_label, input_duration_entry  # Declare as global to modify outside the function
-            input_duration_label = tk.Label(root, text="Duration [s]:", bg=bg_color, fg=fg_color)  # Customize colors
+            input_duration_label = tk.Label(root, text="End time of video [MM:SS]:", bg=bg_color, fg=fg_color)  # Customize colors
             input_duration_label.pack()
             input_duration_entry = tk.Entry(root, width=50, bg=entry_bg, fg=entry_fg)  # Customize colors
             input_duration_entry.insert(0, config['VideoSettings']['duration'])
@@ -73,42 +97,9 @@ def save_config():
     else:
         config['VideoSettings']['cut_video'] = 'false'
     
-    
+    # Write the configuration to the file
     with open('config.ini', 'w') as configfile:
         config.write(configfile)
-
-class ToggleSwitch(tk.Canvas):
-    def __init__(self, parent, width, height, bg_color, fg_color, command=None):
-        super().__init__(parent, width=width, height=height, bg=bg_color, highlightthickness=0)
-        self.command = command
-        self.switch_on = False
-        self.fg_color = fg_color
-        self.bg_color = bg_color
-        self._width = width
-        self._height = height
-        
-        # Create background rectangle
-        self.create_rectangle(0, 0, width, height, fill=self.bg_color, outline="")
-        
-        # Create switch
-        self.switch = self.create_rectangle(2, 2, width//2 - 2, height - 2, fill=self.fg_color, outline="")
-        self.bind("<Button-1>", self.toggle)
-
-    def toggle(self, event=None):
-        self.switch_on = not self.switch_on
-        x0 = self._width - self._width//2 + 2 if self.switch_on else 2
-        x1 = self._width - 2 if self.switch_on else self._width//2 - 2
-        self.coords(self.switch, x0, 2, x1, self._height - 2)
-        if self.command:
-            self.command()
-
-    def get(self):
-        return self.switch_on
-
-    def set(self, value):
-        if value != self.switch_on:
-            self.toggle()
-
 
 
 def start_other_script():  
@@ -132,6 +123,13 @@ logo_photo = ImageTk.PhotoImage(logo_image)
 logo_label = tk.Label(root, image=logo_photo, bg=bg_color)
 logo_label.image = logo_photo  # Keep a reference
 logo_label.pack(pady=10)  # Adjust padding as needed
+# Add logo
+slogan_image = Image.open(r"W:\Umea\PT\Media\11. Balansering\FaceBlurAI\Brand_slogan.png")  # Replace with your logo file path
+slogan_image = slogan_image.resize((100, 20))  # Adjust size as needed
+slogan_photo = ImageTk.PhotoImage(slogan_image)
+slogan_label = tk.Label(root, image=slogan_photo, bg=bg_color)
+slogan_label.image = slogan_photo  # Keep a reference
+slogan_label.place(x=350, y=34)# (x=150, y=52)  # Adjust position of slogan
 
 # Add this line to create vertical space
 tk.Label(root, text="", bg=bg_color, height=2).pack()  # Adjust height as needed
@@ -213,32 +211,53 @@ keep_audio_var.set(False)  # Set default to False (unchecked)
 keep_audio_checkbox = tk.Checkbutton(keep_audio_frame, text="Yes", variable=keep_audio_var, bg=bg_color, fg=fg_color, selectcolor=switch_bg)  # Customize colors
 keep_audio_checkbox.grid(row=1, column=0, sticky='w')  # Pack checkbox with vertical padding
 
-def update_yolo_label():
-    yolo_model_name_var.set("Face" if yolo_model_switch.get() else "Head")
-
 # Frame for YOLO model selection
 yolo_model_frame = tk.Frame(root, bg=bg_color)
 yolo_model_frame.pack(pady=10)
 
-yolo_model_label = tk.Label(yolo_model_frame, text="Blurring target:", bg=bg_color, fg=fg_color)
+yolo_model_label = tk.Label(yolo_model_frame, text="Blurring model:", bg=bg_color, fg=fg_color)
 yolo_model_label.pack()
 
-# Update the ToggleSwitch creation with the new color
-yolo_model_switch = ToggleSwitch(yolo_model_frame, width=65, height=24, bg_color="#c0c0c0", fg_color="#0c039b", command=update_yolo_label)
-yolo_model_switch.pack()
+# Create a dictionary to map display names to model filenames
+model_mapping = {
+    "Face Fast": "YOLOv8n-face.pt",
+    "Face Accurate": "yolov8m-face.pt",
+    "Head Accurate": "best_re_final.pt",
+    "Person Accurate": "yolov8s.pt"
+}
 
-# Create a fixed-width font
-fixed_font = tkfont.Font(family="Courier", size=10)
+# Get the display names (keys of the dictionary) for the dropdown
+model_display_names = list(model_mapping.keys())
 
-# Create a StringVar to hold the model name
-yolo_model_name_var = StringVar()
-yolo_model_name_var.set("best_re_final.pt")  # Set initial value
+# Set up the StringVar with a default value
+model_var = tk.StringVar()
 
-# Create the label with a minimum width
-yolo_model_name_label = tk.Label(yolo_model_frame, textvariable=yolo_model_name_var, 
-                                 bg=bg_color, fg=fg_color, font=fixed_font,
-                                 width=20, anchor='center')  # Set minimum width to 20 characters
-yolo_model_name_label.pack()
+# Set default value based on config or fallback to the first option
+default_model = model_display_names[0]
+if 'ModelSettings' in config and 'yolo_model' in config['ModelSettings']:
+    selected_model = config['ModelSettings']['yolo_model']
+    default_model = next((k for k, v in model_mapping.items() if v == selected_model), model_display_names[0])
+
+model_var.set(default_model)
+
+# Set up the dropdown menu
+model_dropdown = ttk.Combobox(yolo_model_frame, textvariable=model_var, values=model_display_names, state="readonly")
+model_dropdown.pack()
+
+# Function to update the selected model in the config
+def update_model_selection():
+    selected_display_name = model_var.get()  # Get the display name
+    if selected_display_name in model_mapping:  
+        selected_model = model_mapping[selected_display_name]  # Map to the actual model file
+        config['ModelSettings']['yolo_model'] = selected_model  # Save the actual model filename
+    else:
+        print(f"Error: {selected_display_name} is not a valid display name.")
+
+# Bind the selection change to update the configuration
+model_dropdown.bind("<<ComboboxSelected>>", lambda event: update_model_selection())
+
+
+
 
 slider_label = tk.Label(root, text="Set Confidence Level:", bg=bg_color, fg=fg_color)  # Customize colors
 slider_label.pack()
@@ -263,15 +282,6 @@ save_button.place(relx=0.25, rely=0.90, anchor="center")
 run_button_color = "#2196f3"  # A bright, vibrant blue
 start_button = tk.Button(root, text="Run Blurring Script", command=start_other_script, bg=run_button_color, fg="white")
 start_button.place(relx=0.75, rely=0.90, anchor="center")
-
-# Load YOLO model setting from config if it exists
-if 'ModelSettings' in config and 'yolo_model' in config['ModelSettings']:
-    yolo_model_switch.set(config['ModelSettings']['yolo_model'] == 'YOLOv8n-face.pt')
-    update_yolo_label()
-else:
-    # Set a default value if 'ModelSettings' or 'yolo_model' doesn't exist
-    yolo_model_switch.set(False)  # False corresponds to 'best_re_final.pt'
-    update_yolo_label()
 
 # Ensure all frames are aligned at the same level
 options_frame.grid_rowconfigure(0, weight=1)  # Ensure all options are in the same row
